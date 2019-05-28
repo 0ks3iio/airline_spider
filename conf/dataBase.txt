@@ -1,0 +1,12 @@
+#配置文件
+[MysqlDb]
+host = 127.0.0.1
+port = 3306
+user = test
+password = test123
+db_name = roo
+
+
+[concurrent]
+thread = 10
+processor = 20
