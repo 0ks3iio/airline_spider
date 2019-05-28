@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import scrapy
-from airline_spider.items import SpiderCoreItem
 from copy import deepcopy
 from urllib import parse
 import datetime
@@ -11,9 +10,18 @@ from fake_useragent import UserAgent
 import json
 
 from selenium import webdriver
+import http.cookiejar
+
+import re
+
+from scrapy.http.cookies import CookieJar
+
+cookie_jar = CookieJar()
 
 ua = UserAgent()
 to_date = datetime.datetime.now()
+
+import pickle
 
 
 # driver = webdriver.PhantomJS(executable_path='/bin/phantomjs/bin/phantomjs')
@@ -65,11 +73,18 @@ class ChunqiuSpider(scrapy.Spider):
 
     def islogin(self, response):
         logging.info("进入islogin方法")
-        logging.info("jsobj:".format(response.body.decode('utf-8')))
+
+
+
+
+        resp = response.body.decode('utf-8')
+        logging.info("jsobj:".format(resp))
         try:
-            jsobj = json.loads(response.body.decode('utf-8'))
+            jsobj = json.loads(resp)
+
             if jsobj is None or '0' is str(jsobj['Code']):
-                yield scrapy.Request(url=self.start_urls[0], callback=self.parse)
+                yield scrapy.Request(url=self.start_urls[0], callback=self.parse,
+                                     meta={'cookiejar': True})
             else:
                 raise RuntimeError('登陆失败!时间:{}'.format(to_date))
 
@@ -77,11 +92,29 @@ class ChunqiuSpider(scrapy.Spider):
             # todo 登陆失败
             logging.error('Exception :{}登陆失败!时间:{}'.format(e, to_date))
 
+
+
     def parse(self, response):
         # logging.info('进入解析页面1.....response.content:{}'.format(response.body.decode('utf-8')))
         # 地区  东南亚,日韩,港澳台,境内
         area_list = response.xpath('//h2[@class="red f-cb travel-block"]')
         logging.info('method[parse].....:{}'.format(area_list.getall()))
+
+        cookieStr = response.headers.getlist('Set-Cookie')  # 查看一下响应Cookie，也就是第一次访问注册页面时后台写入浏览器的Cookie
+        cookieStr = str(cookieStr[0], encoding="utf8")
+        cookieDict = {}
+        for cookieItemStr in cookieStr.split(";"):
+            cookieItem = cookieItemStr.strip().split("=")
+            print(f"cookieItemStr = {cookieItemStr}, cookieItem = {cookieItem}")
+            if len(cookieItem) == 2:
+                cookieDict[cookieItem[0].strip()] = cookieItem[1].strip()
+        print(f"cookieDict = {cookieDict}")
+
+        # 将cookie写入到文件中，方便后面使用
+        with open('./cookie.txt', 'w') as f:
+            for cookieKey, cookieValue in cookieDict.items():
+                f.write(str(cookieKey) + ':' + str(cookieValue) + '\n')
+
 
         for idx, item in enumerate(area_list):
             air_item = {}
@@ -109,7 +142,8 @@ class ChunqiuSpider(scrapy.Spider):
                         url=detail_url,
                         callback=self.parse_detail,
                         meta={
-                            "item": deepcopy(air_item)
+                            "item": deepcopy(air_item),
+                            'cookiejar': True
                         },
                         formdata={
                             'OriCityCode': btn_form.xpath('./input[@name="OriCityCode"]/@value').extract_first(),
@@ -128,6 +162,9 @@ class ChunqiuSpider(scrapy.Spider):
 
     # 解析详细数据
     def parse_detail(self, response):
+        # 请求Cookie
+        Cookie2 = response.request.headers.getlist('Cookie')
+        logging.info('method[parse_detail]:登录时携带请求的Cookies：'.format(Cookie2))
         try:
             air_item = response.meta['item']
             logging.info('解析详细页面中.....air_item:{}'.format(air_item))
@@ -157,12 +194,12 @@ class ChunqiuSpider(scrapy.Spider):
 
                 air_item['position'] = item.xpath('./li[@class="li9"]/text()').extract_first()
                 print("asfasfa:", item.xpath('./li[last()]'))
-                # price = item.xpath('./li[last()]//span')[0].xpath('./text()')[0]
-                # print("pring:::", price)
-                # if price is not None:
-                #     air_item['price'] = price.replace('¥', '')
+                price = item.xpath('./li[last()]//span/text()').extract_first()
+                print("pring:::", price)
+                if price is not None:
+                    air_item['price'] = price.replace('¥', '')
                 # todo 价格是动态渲染的
-                air_item['price'] = '99'
+                # air_item['price'] = '99'
                 air_item['currency'] = currency
 
                 air_item['detail_url'] = response.url

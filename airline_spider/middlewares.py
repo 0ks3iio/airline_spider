@@ -14,6 +14,10 @@ import time
 
 from scrapy.http import HtmlResponse, Response
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class SpiderCoreSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -50,6 +54,7 @@ class SpiderCoreSpiderMiddleware(object):
         # or Item objects.
         pass
 
+    @staticmethod
     def process_start_requests(self, start_requests, spider):
         # Called with the start requests of the spider, and works
         # similarly to the process_spider_output() method, except
@@ -63,7 +68,14 @@ class SpiderCoreSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
-#from airline_spider.spiders import ChunqiuSpider
+from scrapy.http import HtmlResponse
+from selenium.webdriver import Firefox
+from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.support.wait import WebDriverWait
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+import time
 
 
 class SpiderCoreDownloaderMiddleware(object):
@@ -79,7 +91,6 @@ class SpiderCoreDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
-        return  None
         # Called for each request that goes through the downloader
         # middleware.
 
@@ -91,8 +102,7 @@ class SpiderCoreDownloaderMiddleware(object):
         #   installed downloader middleware will be called
         ua = UserAgent().random
         request.headers.setdefault('User-Agent', ua)
-        pass
-
+        # pass
 
         # chrome_options = Options()
         # chrome_options.add_argument('--headless')  # 使用无头谷歌浏览器模式
@@ -121,6 +131,52 @@ class SpiderCoreDownloaderMiddleware(object):
         # return scrapy.FormRequest(url='https://passport.ch.com/zh_cn/Login/DoLogin',
         #                           formdata=from_data,
         #                           callback=ChunqiuSpider.islogin)
+
+        if spider.name == 'chunqiu':
+            if 'AirFlights/ActivitiesSecondKill' in request.url:
+                options = Options()
+                options.add_argument('-headless')
+
+                # geckodriver需要手动下载
+                driver = Firefox(executable_path='D:\\softpackage\\geckodriver', firefox_options=options)
+                # driver.manage().addCookie(new Cookie("Name", "value", "域名", "/", 生效时间, false, false));
+
+                driver.get(request.url)
+
+                time.sleep(3)
+
+                driver.add_cookie(
+                   self.ReadTxtName('./cookie.txt')
+                )
+                # searchText = driver.find_element_by_xpath('//div[@class="threadlist_title pull_left j_th_tit "]/a')[0].text
+                #  search_results = WebDriverWait(driver,10).until(
+                #      # lambda d: d.find_elements_by_xpath('//h3[@class="t c-title-en"] | //h3[@class="t"]')
+                #      lambda e: e.find_elements_by_xpath('//div[contains(@class,"threadlist_title pull_left j_th_tit ")]/a[1]')
+                #  )
+                #  for item in search_results:
+                #      print(item.text)  # 打印搜索内容的标题
+
+                html = driver.page_source
+                driver.quit()
+
+                # 构建response, 将它发送给spider引擎
+                return HtmlResponse(url=request.url, body=html, request=request, encoding='utf-8')
+
+    def ReadTxtName(self, dir):
+        dict_cookies = {}
+        with open(dir, 'r') as file_to_read:
+            while True:
+                line = file_to_read.readline()
+                if not line:
+                    break
+                dict_cookies['name'] =line.split(':')[0]
+                dict_cookies['value'] ="".join(line.split(':')[1:] )
+                dict_cookies['domain'] ="passport.ch.com"
+                dict_cookies['path'] ="/"
+                dict_cookies['httpOnly'] =False
+                dict_cookies['Secure'] =True
+
+        return dict_cookies
 
     def process_response(self, request, response, spider):
         # Called with the response returned from the downloader.

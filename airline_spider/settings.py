@@ -10,12 +10,15 @@
 #     https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
 import datetime
+import os
+import sys
+
 
 DEVELOP_MODEL = True
 
 # 配置log日志
 to_date = datetime.datetime.now()
-log_file_path = './log/scrapy_{}_{}_{}.log'.format(to_date.year, to_date.month, to_date.day)
+log_file_path = os.getcwd()+'/log/scrapy_{}_{}_{}.log'.format(to_date.year, to_date.month, to_date.day)
 LOG_LEVEL = 'DEBUG'
 LOG_FILE = log_file_path
 
