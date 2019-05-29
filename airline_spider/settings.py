@@ -104,7 +104,7 @@ ITEM_PIPELINES = {
 # HTTPCACHE_STORAGE = 'scrapy.extensions.httpcache.FilesystemCacheStorage'
 
 
-# COOKIES_ENABLED = True
+COOKIES_ENABLED = True
 
 MONGODB_HOST = '129.204.42.203'
 MONGODB_PORT = 37017

@@ -24,43 +24,30 @@ to_date = datetime.datetime.now()
 import pickle
 
 
-# driver = webdriver.PhantomJS(executable_path='/bin/phantomjs/bin/phantomjs')
-# 如果不方便配置环境变量。就使用phantomjs的绝对路径也可以
-
-
 # todo  现在无法获取价格参数
 # todo  发生抓取数据异常建议发送邮件 保证数据最新性
 
 class ChunqiuSpider(scrapy.Spider):
     name = 'chunqiu'
-    allowed_domains = ['pages.ch.com']
+    allowed_domains = ['ch.com']
     start_urls = ['https://pages.ch.com/second-kill/']
     headers = {
         'user-agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.96 Safari/537.36", }
 
-    # 初始化函数 ,
-    # def __init__(self):
-    # self.browser = webdriver.Firefox()
-    # self.browser.set_page_load_timeout(30)
-    #    pass
-
-    # def closed(self, spider):
-    # print("spider closed")
-    # self.browser.close()
-    #   pass
 
     def start_requests(self):
+
         """
-        重载start_requests方法 待登录成功后，再进入parse进行数据爬取
-            访问登录页面 并调用do_login方法进行登录
-        """
+               重载start_requests方法 待登录成功后，再进入parse进行数据爬取
+                   访问登录页面 并调用do_login方法进行登录
+               """
         # 春秋通过算法把字符串加密了
         # 17673119082
         # flyfly123
         from_data = {
-            'UserNameInput': 'LarvwuAX3KTyBFXtXkCcjcFRLzpSb/Ft6P1r29CxZcOlpn9Le8Q+LCQ3iTeXnW2ZdCKJsmA0tOyn4wF4C92vjs1Tg11lGxaroeAgGmSgZvBqyLQha2UNOM/MDHMroF1m9W5j92oe2jg2QPS4rTsCVRsnMcZCCd3y2iY/2/PBtx0=',
+            'UserNameInput': 'DipmHSQzWRuS4uJuNgip4uoYNobVz/uf4SrS3FVQs0NmezAl6rxw/56oOvDWLmDSS8GvjTd0Or665VuPS4TxH4tR09Ns+BF1U+F3H3SXdhOqSRNLOtLVfDPVXaEwy5WiEpsOpaBh2fLK8ykda3za3IuZQNO/OJcS8NkmVJ3ioW8=',
             'undefined': '0',
-            'PasswordInput': ' dAaIbU2BmGOtFUVYm/gEM5yaZojqmtjifUJP2N+gkamNFyBqwec5ETXZFcji8orszLywEZPaJ1fQHOvZidQKhWLNtKDqBObcbrXlwgsQuX7ePqYBtP6qAc5JIQ/tfPcPYT6S0s4cCdAWGzyitt/L0jqf27XCael00UjFFLDswAU=',
+            'PasswordInput': 'C3d861CHT2t7QVGr4Nq3FhWBWPp21uBZ8xNkOB8Dprg0DA7fwKBz4ngkwQjlDqoH/YJRK7x+++LqbZ7EIT7LlBHGf2f5WmVb7ETP6vj3/xYCdRIC+BIozvh27WR1Dw7kkbqmjs9TBh7mgxDRbaabEioF+/v8nfRq/Or9OfKbr8U=',
             'IsKeepLoginState': 'true',
             'loginType': 'PC',
         }
@@ -69,19 +56,20 @@ class ChunqiuSpider(scrapy.Spider):
                                  formdata=from_data,
                                  callback=self.islogin,
                                  headers=self.headers,
-                                 dont_filter=True)
+                                 dont_filter=True,
+                                 meta={'cookiejar': 1}
+                                 )
 
     def islogin(self, response):
         logging.info("进入islogin方法")
 
-
-
+        # 保存cookie
+        self.save_cookie(response.headers.getlist('Set-Cookie'))
 
         resp = response.body.decode('utf-8')
         logging.info("jsobj:".format(resp))
         try:
             jsobj = json.loads(resp)
-
             if jsobj is None or '0' is str(jsobj['Code']):
                 yield scrapy.Request(url=self.start_urls[0], callback=self.parse,
                                      meta={'cookiejar': True})
@@ -92,29 +80,11 @@ class ChunqiuSpider(scrapy.Spider):
             # todo 登陆失败
             logging.error('Exception :{}登陆失败!时间:{}'.format(e, to_date))
 
-
-
     def parse(self, response):
         # logging.info('进入解析页面1.....response.content:{}'.format(response.body.decode('utf-8')))
         # 地区  东南亚,日韩,港澳台,境内
         area_list = response.xpath('//h2[@class="red f-cb travel-block"]')
         logging.info('method[parse].....:{}'.format(area_list.getall()))
-
-        cookieStr = response.headers.getlist('Set-Cookie')  # 查看一下响应Cookie，也就是第一次访问注册页面时后台写入浏览器的Cookie
-        cookieStr = str(cookieStr[0], encoding="utf8")
-        cookieDict = {}
-        for cookieItemStr in cookieStr.split(";"):
-            cookieItem = cookieItemStr.strip().split("=")
-            print(f"cookieItemStr = {cookieItemStr}, cookieItem = {cookieItem}")
-            if len(cookieItem) == 2:
-                cookieDict[cookieItem[0].strip()] = cookieItem[1].strip()
-        print(f"cookieDict = {cookieDict}")
-
-        # 将cookie写入到文件中，方便后面使用
-        with open('./cookie.txt', 'w') as f:
-            for cookieKey, cookieValue in cookieDict.items():
-                f.write(str(cookieKey) + ':' + str(cookieValue) + '\n')
-
 
         for idx, item in enumerate(area_list):
             air_item = {}
@@ -208,3 +178,10 @@ class ChunqiuSpider(scrapy.Spider):
         except Exception as e:
             logging.error("解析详细页面错误:", e)
             pass
+
+    def save_cookie(self, cookie_list):
+        with open('./cookie.txt', 'w', encoding='utf-8') as f:
+            for i, item in enumerate(cookie_list):
+                print(item.decode('utf-8'))
+                f.writelines(item.decode('utf-8') + '\n')
+            f.close()

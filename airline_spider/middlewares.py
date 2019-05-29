@@ -76,6 +76,7 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 import time
+import re
 
 
 class SpiderCoreDownloaderMiddleware(object):
@@ -146,7 +147,7 @@ class SpiderCoreDownloaderMiddleware(object):
                 time.sleep(3)
 
                 driver.add_cookie(
-                   self.ReadTxtName('./cookie.txt')
+                    self.ReadTxtName('./cookie.txt')
                 )
                 # searchText = driver.find_element_by_xpath('//div[@class="threadlist_title pull_left j_th_tit "]/a')[0].text
                 #  search_results = WebDriverWait(driver,10).until(
@@ -169,12 +170,27 @@ class SpiderCoreDownloaderMiddleware(object):
                 line = file_to_read.readline()
                 if not line:
                     break
-                dict_cookies['name'] =line.split(':')[0]
-                dict_cookies['value'] ="".join(line.split(':')[1:] )
-                dict_cookies['domain'] ="passport.ch.com"
-                dict_cookies['path'] ="/"
-                dict_cookies['httpOnly'] =False
-                dict_cookies['Secure'] =True
+
+                dict_cookies['Name'] = line.split(';')[0]
+                dict_cookies['Value'] = line.split(';')[1]
+
+                expires = re.compile('.*expires=(.*?);', re.DOTALL).findall(line)
+                if len(expires) > 0:
+                    dict_cookies['Expires'] = expires[0]
+
+                sss = re.search(';path=.*', line, re.IGNORECASE)
+                if sss:
+                    dict_cookies['Path'] = sss.group().split('=')[1]
+
+                domain = re.compile('.*domain=(.*?);', re.DOTALL).findall(line)
+                if len(domain) > 0:
+                    dict_cookies['Domain'] = domain[0]
+
+                if len(re.compile('.*httpOnly=(.*?);', re.DOTALL).findall(line)) > 0:
+                    dict_cookies['HttpOnly'] = True
+                else:
+                    dict_cookies['HttpOnly'] = False
+                dict_cookies['Secure'] = True
 
         return dict_cookies
 
