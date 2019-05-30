@@ -139,16 +139,23 @@ class SpiderCoreDownloaderMiddleware(object):
                 options.add_argument('-headless')
 
                 # geckodriver需要手动下载
-                driver = Firefox(executable_path='D:\\softpackage\\geckodriver', firefox_options=options)
+                driver = Firefox(executable_path='C:\\Users\\win7\\Desktop\\temp\\geckodriver', firefox_options=options)
                 # driver.manage().addCookie(new Cookie("Name", "value", "域名", "/", 生效时间, false, false));
 
                 driver.get(request.url)
 
                 time.sleep(3)
 
-                driver.add_cookie(
-                    self.ReadTxtName('./cookie.txt')
-                )
+                # driver.add_cookie(
+                #     self.ReadTxtName('./cookie.txt')
+                # )
+                driver.add_cookie({'name': 'limeimei', 'value': '222', 'domain': 'ch.com'})
+                driver.add_cookie({'name': 'limeimei', 'value': '222', 'domain': 'pages.ch.com'})
+
+                print(driver.get_cookies())
+                time.sleep(30)
+                driver.get(request.url)
+                print(driver.get_cookies())
                 # searchText = driver.find_element_by_xpath('//div[@class="threadlist_title pull_left j_th_tit "]/a')[0].text
                 #  search_results = WebDriverWait(driver,10).until(
                 #      # lambda d: d.find_elements_by_xpath('//h3[@class="t c-title-en"] | //h3[@class="t"]')
